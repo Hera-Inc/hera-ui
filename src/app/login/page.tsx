@@ -1,127 +1,19 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { Web3Auth } from "@web3auth/modal";
-import { CHAIN_NAMESPACES, IProvider, WEB3AUTH_NETWORK } from "@web3auth/base";
-import { EthereumPrivateKeyProvider } from "@web3auth/ethereum-provider";
-import { createWalletClient, custom} from "viem";
-import { arbitrum } from "viem/chains";
-
-// Use Arbitrum mainnet
-const chainConfig = {
-  chainNamespace: CHAIN_NAMESPACES.EIP155,
-  chainId: "0xa4b1", // Arbitrum One
-  rpcTarget: "https://arb1.arbitrum.io/rpc",
-  displayName: "Arbitrum One",
-  blockExplorerUrl: "https://arbiscan.io",
-  ticker: "ETH",
-  tickerName: "Ethereum",
-  logo: "https://cryptologos.cc/logos/arbitrum-arb-logo.png",
-};
+import { useEffect } from "react";
+import { useRouter } from "next/navigation";
+import { useWeb3Auth } from "@/contexts/Web3AuthContext";
 
 export default function LoginPage() {
-  const [web3auth, setWeb3auth] = useState<Web3Auth | null>(null);
-  const [provider, setProvider] = useState<IProvider | null>(null);
-  const [loggedIn, setLoggedIn] = useState(false);
-  const [loading, setLoading] = useState(true);
-  const [userInfo, setUserInfo] = useState<any>(null);
-  const [address, setAddress] = useState<string>("");
+  const router = useRouter();
+  const { loggedIn, loading, address, login, logout } = useWeb3Auth();
 
+  // Redirect to dashboard if already logged in
   useEffect(() => {
-    const init = async () => {
-      try {
-        const privateKeyProvider = new EthereumPrivateKeyProvider({
-          config: { chainConfig },
-        });
-
-        const web3authInstance = new Web3Auth({
-          clientId: "BPi5PB_UiIZ-cPz1GtV5i1I2iOSOHuimiXBI0e-Oe_u6X3oVAbCiAZOTEBtTXw4tsluTITPqA8zMsfxIKMjiqNQ", // Demo client ID
-          web3AuthNetwork: WEB3AUTH_NETWORK.SAPPHIRE_MAINNET, // Changed to match client ID configuration
-          privateKeyProvider: privateKeyProvider as any,
-          uiConfig: {
-            appName: "Hera - Digital Inheritance",
-            mode: "dark",
-            loginMethodsOrder: ["google", "facebook", "twitter", "discord", "email_passwordless"],
-            logoLight: "https://web3auth.io/images/web3authlog.png",
-            logoDark: "https://web3auth.io/images/web3authlogodark.png",
-            defaultLanguage: "en",
-            theme: {
-              primary: "#9333ea", // Purple theme
-            },
-          },
-        });
-
-        await web3authInstance.init();
-        setWeb3auth(web3authInstance);
-
-        if (web3authInstance.connected) {
-          setProvider(web3authInstance.provider);
-          setLoggedIn(true);
-          await getUserInfo(web3authInstance);
-        }
-      } catch (error) {
-        console.error("Error initializing Web3Auth:", error);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    init();
-  }, []);
-
-  const getUserInfo = async (web3authInstance: Web3Auth) => {
-    try {
-      const user = await web3authInstance.getUserInfo();
-      setUserInfo(user);
-
-      if (web3authInstance.provider) {
-        const walletClient = createWalletClient({
-          chain: arbitrum,
-          transport: custom(web3authInstance.provider),
-        });
-
-        const addresses = await walletClient.getAddresses();
-        if (addresses[0]) {
-          setAddress(addresses[0]);
-        }
-      }
-    } catch (error) {
-      console.error("Error getting user info:", error);
+    if (!loading && loggedIn) {
+      router.push("/dashboard");
     }
-  };
-
-  const login = async () => {
-    if (!web3auth) {
-      console.log("Web3Auth not initialized");
-      return;
-    }
-
-    try {
-      const web3authProvider = await web3auth.connect();
-      setProvider(web3authProvider);
-      setLoggedIn(true);
-      await getUserInfo(web3auth);
-    } catch (error) {
-      console.error("Error logging in:", error);
-    }
-  };
-
-  const logout = async () => {
-    if (!web3auth) {
-      console.log("Web3Auth not initialized");
-      return;
-    }
-
-    try {
-      await web3auth.logout();
-      setProvider(null);
-      setLoggedIn(false);
-      setUserInfo(null);
-      setAddress("");
-    } catch (error) {
-      console.error("Error logging out:", error);
-    }
-  };
+  }, [loading, loggedIn, router]);
 
   if (loading) {
     return (
@@ -234,12 +126,12 @@ export default function LoginPage() {
                 )}
 
                 <div className="flex flex-col sm:flex-row gap-4">
-                  <a
-                    href="/"
+                  <button
+                    onClick={() => router.push("/dashboard")}
                     className="flex-1 px-8 py-4 bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white rounded-xl font-bold text-lg transition-all transform hover:scale-105 shadow-2xl shadow-purple-500/50"
                   >
                     Go to Dashboard 🚀
-                  </a>
+                  </button>
                   
                   <button
                     onClick={logout}
