@@ -70,9 +70,9 @@ export default function Home() {
             <div className="text-2xl font-bold bg-gradient-to-r from-purple-400 to-pink-400 bg-clip-text text-transparent">
               🛡️ Hera
             </div>
-            <button className="px-6 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-full font-semibold transition-all transform hover:scale-105 shadow-lg shadow-purple-500/50">
+            <a href="/login" className="px-6 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-full font-semibold transition-all transform hover:scale-105 shadow-lg shadow-purple-500/50 inline-block">
               Log in / Sign up
-            </button>
+            </a>
           </div>
         </nav>
 
@@ -96,9 +96,9 @@ export default function Home() {
             </p>
 
             <div className="flex flex-col sm:flex-row gap-4 justify-center items-center">
-              <button className="px-8 py-4 bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white rounded-full font-bold text-lg transition-all transform hover:scale-105 shadow-2xl shadow-purple-500/50">
+              <a href="/login" className="px-8 py-4 bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white rounded-full font-bold text-lg transition-all transform hover:scale-105 shadow-2xl shadow-purple-500/50 inline-block">
                 Create Your Digital Box 🚀
-              </button>
+              </a>
               <button className="px-8 py-4 bg-white/10 hover:bg-white/20 backdrop-blur-sm text-white rounded-full font-bold text-lg transition-all border border-white/20">
                 Learn More 📚
               </button>
@@ -264,9 +264,9 @@ export default function Home() {
             <p className="text-purple-200 text-lg md:text-xl mb-10 max-w-2xl mx-auto">
               Join others who are keeping their digital wealth safe for the people they love! 💝
             </p>
-            <button className="px-10 py-5 bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white rounded-full font-bold text-xl transition-all transform hover:scale-105 shadow-2xl shadow-purple-500/50">
+            <a href="/login" className="px-10 py-5 bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white rounded-full font-bold text-xl transition-all transform hover:scale-105 shadow-2xl shadow-purple-500/50 inline-block">
               Create Your Digital Box Now 🚀
-            </button>
+            </a>
           </div>
         </div>
       </div>
