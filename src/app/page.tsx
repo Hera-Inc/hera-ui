@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Image from "next/image";
 
 export default function Home() {
   const [activeStep, setActiveStep] = useState(0);
@@ -67,8 +68,20 @@ export default function Home() {
 
         <nav className="relative z-10 container mx-auto px-6 py-6">
           <div className="flex items-center justify-between">
-            <div className="text-2xl font-bold bg-gradient-to-r from-purple-400 to-pink-400 bg-clip-text text-transparent">
-              🛡️ Hera
+            <div className="flex items-center gap-3 group">
+              <div className="relative w-10 h-10 transition-all transform group-hover:scale-110">
+                <Image 
+                  src="/HeraLogo.png" 
+                  alt="Hera Logo" 
+                  width={40} 
+                  height={40}
+                  className="object-contain drop-shadow-[0_0_15px_rgba(168,85,247,0.6)]"
+                  priority
+                />
+              </div>
+              <span className="text-2xl font-bold bg-gradient-to-r from-purple-400 to-pink-400 bg-clip-text text-transparent">
+                Hera
+              </span>
             </div>
             <a href="/login" className="px-6 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-full font-semibold transition-all transform hover:scale-105 shadow-lg shadow-purple-500/50 inline-block">
               Log in / Sign up
@@ -277,8 +290,19 @@ export default function Home() {
           <div className="max-w-6xl mx-auto">
             <div className="grid md:grid-cols-3 gap-8 mb-8">
               <div>
-                <div className="text-xl font-bold bg-gradient-to-r from-purple-400 to-pink-400 bg-clip-text text-transparent mb-4">
-                  🛡️ Hera
+                <div className="flex items-center gap-2 mb-4">
+                  <div className="relative w-8 h-8">
+                    <Image 
+                      src="/HeraLogo.png" 
+                      alt="Hera Logo" 
+                      width={32} 
+                      height={32}
+                      className="object-contain drop-shadow-[0_0_10px_rgba(168,85,247,0.5)]"
+                    />
+                  </div>
+                  <span className="text-xl font-bold bg-gradient-to-r from-purple-400 to-pink-400 bg-clip-text text-transparent">
+                    Hera
+                  </span>
                 </div>
                 <p className="text-purple-300">
                   Making digital inheritance simple and safe for everyone.

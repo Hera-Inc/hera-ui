@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import { useWeb3Auth } from "@/contexts/Web3AuthContext";
 import { useWillContract } from "@/hooks/useWillContract";
 import { useRouter } from "next/navigation";
+import Image from "next/image";
 
 type TabType = "overview" | "assets" | "beneficiaries" | "settings";
 
@@ -142,8 +143,20 @@ export default function DashboardPage() {
       {/* Navigation */}
       <nav className="relative z-10 container mx-auto px-6 py-6">
         <div className="flex items-center justify-between">
-          <a href="/" className="text-2xl font-bold bg-gradient-to-r from-purple-400 to-pink-400 bg-clip-text text-transparent">
-            🛡️ Hera
+          <a href="/" className="flex items-center gap-3 group">
+            <div className="relative w-10 h-10 transition-all transform group-hover:scale-110">
+              <Image 
+                src="/HeraLogo.png" 
+                alt="Hera Logo" 
+                width={40} 
+                height={40}
+                className="object-contain drop-shadow-[0_0_15px_rgba(168,85,247,0.6)]"
+                priority
+              />
+            </div>
+            <span className="text-2xl font-bold bg-gradient-to-r from-purple-400 to-pink-400 bg-clip-text text-transparent">
+              Hera
+            </span>
           </a>
           <div className="flex items-center gap-4">
             {address && (
