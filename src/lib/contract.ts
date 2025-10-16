@@ -1,7 +1,7 @@
 import { Address } from "viem";
 
-// Replace with your deployed contract address
-export const WILL_CONTRACT_ADDRESS = "0x68eCEac93e1d8AB3c9082D1d7b4f7A768200F129" as Address;
+// Get contract address from environment variable or use default
+export const WILL_CONTRACT_ADDRESS = (process.env.NEXT_PUBLIC_WILL_CONTRACT_ADDRESS || "0x68eCEac93e1d8AB3c9082D1d7b4f7A768200F129") as Address;
 
 // Complete ABI for DigitalWillFactory contract
 export const WILL_CONTRACT_ABI = [

@@ -5,9 +5,16 @@
   "scripts": {
     "dev": "next dev --turbopack",
     "build": "next build --turbopack",
+    "build:production": "npm run lint && npm run build",
     "start": "next start",
+    "start:production": "NODE_ENV=production npm run start",
     "lint": "biome check",
-    "format": "biome format --write"
+    "format": "biome format --write",
+    "clean": "rm -rf .next out node_modules/.cache",
+    "deploy": "npm run build:production && vercel --prod",
+    "preview": "npm run build && npm run start",
+    "check-env": "node scripts/check-env.js",
+    "prebuild": "npm run check-env"
   },
   "dependencies": {
     "@web3auth/base": "^9.7.0",

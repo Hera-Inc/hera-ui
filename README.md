@@ -1,36 +1,75 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Hera UI - Digital Inheritance Platform
+
+A Next.js web application for managing digital inheritance on the blockchain. Built with Web3Auth for seamless authentication and deployed on Base Sepolia.
+
+## Features
+
+- 🔐 **Web3Auth Integration** - Easy social login for blockchain
+- 📝 **Digital Will Management** - Create and manage your digital will
+- 💰 **Multi-Asset Support** - ETH, ERC20, and ERC721 tokens
+- 👥 **Beneficiary Management** - Add and approve beneficiaries
+- ⏰ **Heartbeat System** - Regular check-ins to ensure account activity
+- 🎨 **Modern UI** - Beautiful dark mode interface with Tailwind CSS
 
 ## Getting Started
 
-First, run the development server:
+### Prerequisites
+
+- Node.js 20.x or higher
+- npm or yarn
+- Web3Auth Client ID ([Get one here](https://dashboard.web3auth.io/))
+
+### Environment Setup
+
+1. Copy the environment variables template:
+
+   ```bash
+   cp env.example .env.local
+   ```
+
+2. Update `.env.local` with your values:
+   ```env
+   NEXT_PUBLIC_WEB3AUTH_CLIENT_ID=your_client_id
+   NEXT_PUBLIC_WILL_CONTRACT_ADDRESS=0x68eCEac93e1d8AB3c9082D1d7b4f7A768200F129
+   ```
+
+### Development
+
+First, install dependencies and run the development server:
 
 ```bash
+npm install
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
 Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+### Available Scripts
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+- `npm run dev` - Start development server with Turbopack
+- `npm run build` - Build for production
+- `npm run start` - Start production server
+- `npm run lint` - Run Biome linter
+- `npm run format` - Format code with Biome
 
-## Learn More
+## Technology Stack
 
-To learn more about Next.js, take a look at the following resources:
+- **Framework**: Next.js 15 with App Router
+- **Styling**: Tailwind CSS 4
+- **Web3 Auth**: Web3Auth Modal SDK
+- **Blockchain**: Base Sepolia (Ethereum L2)
+- **Smart Contracts**: Viem for contract interactions
+- **Linting**: Biome
+- **Build Tool**: Turbopack (Next.js 15)
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+## Smart Contract
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+The UI interacts with the DigitalWillFactory smart contract deployed on Base Sepolia:
 
-## Deploy on Vercel
+- Contract Address: `0x68eCEac93e1d8AB3c9082D1d7b4f7A768200F129`
+- Network: Base Sepolia (Chain ID: 84532)
+- Explorer: [View on BaseScan](https://sepolia.basescan.org/address/0x68eCEac93e1d8AB3c9082D1d7b4f7A768200F129)
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+## License
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+This project is part of Hera Inc - Digital Inheritance Protocol.

@@ -64,8 +64,13 @@ export function Web3AuthProvider({ children }: { children: ReactNode }) {
           config: { chainConfig },
         });
 
+        const clientId = process.env.NEXT_PUBLIC_WEB3AUTH_CLIENT_ID;
+        if (!clientId) {
+          throw new Error("NEXT_PUBLIC_WEB3AUTH_CLIENT_ID is not set");
+        }
+
         const web3authInstance = new Web3Auth({
-          clientId: "BPi5PB_UiIZ-cPz1GtV5i1I2iOSOHuimiXBI0e-Oe_u6X3oVAbCiAZOTEBtTXw4tsluTITPqA8zMsfxIKMjiqNQ",
+          clientId,
           web3AuthNetwork: WEB3AUTH_NETWORK.SAPPHIRE_MAINNET,
           privateKeyProvider: privateKeyProvider as any,
           uiConfig: {
