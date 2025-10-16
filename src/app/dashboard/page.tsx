@@ -5,12 +5,23 @@ import { useWeb3Auth } from "@/contexts/Web3AuthContext";
 import { useWillContract } from "@/hooks/useWillContract";
 import { useRouter } from "next/navigation";
 
+type TabType = "overview" | "assets" | "beneficiaries" | "settings";
+
 export default function DashboardPage() {
   const router = useRouter();
-  const { provider, address, loggedIn, loading: authLoading, logout } = useWeb3Auth();
+  const { provider, address, loggedIn, loading: authLoading, logout, currentChainId, switchChain } = useWeb3Auth();
   
   // Form state
   const [heartbeatDays, setHeartbeatDays] = useState("30");
+  const [activeTab, setActiveTab] = useState<TabType>("overview");
+  
+  // Asset deposit form state
+  const [assetType, setAssetType] = useState<"ETH" | "ERC20" | "ERC721">("ETH");
+  const [ethAmount, setEthAmount] = useState("");
+  const [tokenAddress, setTokenAddress] = useState("");
+  const [tokenAmount, setTokenAmount] = useState("");
+  const [tokenId, setTokenId] = useState("");
+  const [beneficiaryAddress, setBeneficiaryAddress] = useState("");
 
   // Only use contract hook if logged in
   const contractHook = useWillContract(loggedIn ? provider : null, loggedIn ? address : "");
@@ -19,6 +30,10 @@ export default function DashboardPage() {
     willInfo,
     loading: contractLoading,
     createWill,
+    depositEth,
+    depositERC20,
+    depositERC721,
+    checkIn,
   } = contractHook;
 
   // Redirect if not logged in
@@ -35,7 +50,62 @@ export default function DashboardPage() {
       alert("Will created successfully! 🎉");
     } catch (error) {
       console.error("Error creating will:", error);
-      alert("Failed to create will");
+      alert("Failed to create will. " + (error as Error).message);
+    }
+  };
+
+  const handleDepositAsset = async () => {
+    try {
+      if (!beneficiaryAddress) {
+        alert("Please enter a beneficiary address");
+        return;
+      }
+
+      if (assetType === "ETH") {
+        if (!ethAmount) {
+          alert("Please enter an amount");
+          return;
+        }
+        const amountWei = BigInt(Math.floor(parseFloat(ethAmount) * 1e18));
+        await depositEth(beneficiaryAddress as any, amountWei);
+        alert("ETH deposited successfully! 💰");
+        setEthAmount("");
+        setBeneficiaryAddress("");
+      } else if (assetType === "ERC20") {
+        if (!tokenAddress || !tokenAmount) {
+          alert("Please enter token address and amount");
+          return;
+        }
+        const amount = BigInt(tokenAmount);
+        await depositERC20(tokenAddress as any, amount, beneficiaryAddress as any);
+        alert("ERC20 token deposited successfully! 🪙");
+        setTokenAddress("");
+        setTokenAmount("");
+        setBeneficiaryAddress("");
+      } else if (assetType === "ERC721") {
+        if (!tokenAddress || !tokenId) {
+          alert("Please enter token address and token ID");
+          return;
+        }
+        await depositERC721(tokenAddress as any, BigInt(tokenId), beneficiaryAddress as any);
+        alert("NFT deposited successfully! 🎨");
+        setTokenAddress("");
+        setTokenId("");
+        setBeneficiaryAddress("");
+      }
+    } catch (error) {
+      console.error("Error depositing asset:", error);
+      alert("Failed to deposit asset. " + (error as Error).message);
+    }
+  };
+
+  const handleCheckIn = async () => {
+    try {
+      await checkIn();
+      alert("Check-in successful! ✅ Your will is now updated.");
+    } catch (error) {
+      console.error("Error checking in:", error);
+      alert("Failed to check in. " + (error as Error).message);
     }
   };
 
@@ -87,6 +157,31 @@ export default function DashboardPage() {
           </div>
         </div>
       </nav>
+
+      {/* Chain Warning */}
+      {currentChainId && currentChainId !== "0x14a34" && (
+        <div className="relative z-10 container mx-auto px-6 py-4">
+          <div className="max-w-7xl mx-auto">
+            <div className="bg-red-500/20 border border-red-500/50 rounded-xl p-4 flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <span className="text-2xl">⚠️</span>
+                <div>
+                  <p className="text-red-200 font-semibold">Wrong Network</p>
+                  <p className="text-red-300 text-sm">
+                    Please switch to Base Sepolia network. Currently on chain ID: {parseInt(currentChainId, 16)}
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={switchChain}
+                className="px-6 py-2 bg-red-500 hover:bg-red-600 text-white rounded-lg font-semibold transition-all whitespace-nowrap"
+              >
+                Switch Network
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Main Content */}
       <div className="relative z-10 container mx-auto px-6 py-8">
@@ -150,58 +245,283 @@ export default function DashboardPage() {
               </div>
             </div>
           ) : (
-            /* Will Created Success */
-            <div className="bg-gradient-to-br from-green-500/10 to-emerald-500/10 backdrop-blur-sm border border-green-500/20 rounded-3xl p-8 md:p-12 max-w-3xl mx-auto">
-              <div className="text-center">
-                <div className="text-6xl md:text-7xl mb-6">✅</div>
-                <h2 className="text-3xl md:text-4xl font-bold text-white mb-4">Will Created Successfully!</h2>
-                <p className="text-green-200 text-lg mb-8">
-                  Your digital will is now active and ready to protect your assets.
-                </p>
-                
-                <div className="bg-slate-800/50 border border-purple-500/20 rounded-2xl p-6 mb-8">
-                  <h3 className="text-white font-bold text-xl mb-4">Will Details</h3>
-                  <div className="grid md:grid-cols-2 gap-6 text-left">
-                    <div>
+            /* Will Management Dashboard */
+            <div>
+              {/* Tabs Navigation */}
+              <div className="flex gap-2 mb-6 overflow-x-auto">
+                {[
+                  { id: "overview", label: "Overview", icon: "📊" },
+                  { id: "assets", label: "Add Assets", icon: "💰" },
+                  { id: "beneficiaries", label: "Beneficiaries", icon: "👥" },
+                  { id: "settings", label: "Settings", icon: "⚙️" },
+                ].map((tab) => (
+                  <button
+                    key={tab.id}
+                    onClick={() => setActiveTab(tab.id as TabType)}
+                    className={`px-6 py-3 rounded-xl font-semibold transition-all whitespace-nowrap ${
+                      activeTab === tab.id
+                        ? "bg-gradient-to-r from-purple-600 to-pink-600 text-white shadow-lg"
+                        : "bg-white/5 text-purple-200 hover:bg-white/10"
+                    }`}
+                  >
+                    {tab.icon} {tab.label}
+                  </button>
+                ))}
+              </div>
+
+              {/* Overview Tab */}
+              {activeTab === "overview" && (
+                <div className="bg-gradient-to-br from-purple-900/30 to-pink-900/30 backdrop-blur-sm border border-purple-500/20 rounded-3xl p-8">
+                  <div className="text-center mb-8">
+                    <div className="text-6xl mb-4">✅</div>
+                    <h2 className="text-3xl font-bold text-white mb-2">Your Will is Active</h2>
+                    <p className="text-purple-200">Managing your digital inheritance</p>
+                  </div>
+
+                  {/* Stats Grid */}
+                  <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+                    <div className="bg-slate-800/50 border border-purple-500/20 rounded-xl p-5">
                       <div className="text-purple-300 text-sm mb-1">Status</div>
-                      <div className="text-white text-lg font-medium">
-                        {willInfo.state}
+                      <div className="text-white text-2xl font-bold">{willInfo.state}</div>
+                    </div>
+                    <div className="bg-slate-800/50 border border-purple-500/20 rounded-xl p-5">
+                      <div className="text-purple-300 text-sm mb-1">Total Assets</div>
+                      <div className="text-white text-2xl font-bold">{willInfo.assetCount.toString()}</div>
+                    </div>
+                    <div className="bg-slate-800/50 border border-purple-500/20 rounded-xl p-5">
+                      <div className="text-purple-300 text-sm mb-1">Check-in Interval</div>
+                      <div className="text-white text-2xl font-bold">
+                        {Number(willInfo.heartbeatInterval / BigInt(86400))}d
                       </div>
                     </div>
-                    <div>
-                      <div className="text-purple-300 text-sm mb-1">Heartbeat Interval</div>
-                      <div className="text-white text-lg font-medium">
-                        {Number(willInfo.heartbeatInterval / BigInt(86400))} days
-                      </div>
-                    </div>
-                    <div>
+                    <div className="bg-slate-800/50 border border-purple-500/20 rounded-xl p-5">
                       <div className="text-purple-300 text-sm mb-1">Last Check-In</div>
-                      <div className="text-white text-lg font-medium">
+                      <div className="text-white text-lg font-bold">
                         {new Date(Number(willInfo.lastCheckIn) * 1000).toLocaleDateString()}
                       </div>
                     </div>
-                    <div>
-                      <div className="text-purple-300 text-sm mb-1">Total Assets</div>
-                      <div className="text-white text-lg font-medium">
-                        {willInfo.assetCount.toString()}
+                  </div>
+
+                  {/* Check-in Button */}
+                  <div className="bg-blue-500/10 border border-blue-500/30 rounded-2xl p-6 mb-6">
+                    <div className="flex flex-col md:flex-row items-center justify-between gap-4">
+                      <div className="text-left">
+                        <h3 className="text-white font-bold text-xl mb-2">⏰ Regular Check-In</h3>
+                        <p className="text-blue-200">
+                          Check in to confirm you're active and keep your will from becoming claimable.
+                        </p>
                       </div>
+                      <button
+                        onClick={handleCheckIn}
+                        className="px-8 py-4 bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-700 hover:to-cyan-700 text-white rounded-xl font-bold transition-all transform hover:scale-105 shadow-lg whitespace-nowrap"
+                      >
+                        Check In Now ✓
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Quick Actions */}
+                  <div className="grid md:grid-cols-2 gap-4">
+                    <div className="bg-gradient-to-br from-green-500/10 to-emerald-500/10 border border-green-500/20 rounded-xl p-6">
+                      <div className="text-3xl mb-3">💰</div>
+                      <h3 className="text-white font-bold text-lg mb-2">Add Assets</h3>
+                      <p className="text-green-200 text-sm mb-4">
+                        Deposit ETH, ERC20 tokens, or NFTs to your will
+                      </p>
+                      <button
+                        onClick={() => setActiveTab("assets")}
+                        className="text-green-300 hover:text-green-200 font-semibold"
+                      >
+                        Go to Assets →
+                      </button>
+                    </div>
+                    <div className="bg-gradient-to-br from-pink-500/10 to-rose-500/10 border border-pink-500/20 rounded-xl p-6">
+                      <div className="text-3xl mb-3">👥</div>
+                      <h3 className="text-white font-bold text-lg mb-2">Manage Beneficiaries</h3>
+                      <p className="text-pink-200 text-sm mb-4">
+                        Add or update people who will inherit your assets
+                      </p>
+                      <button
+                        onClick={() => setActiveTab("beneficiaries")}
+                        className="text-pink-300 hover:text-pink-200 font-semibold"
+                      >
+                        Manage →
+                      </button>
                     </div>
                   </div>
                 </div>
+              )}
 
-                <div className="bg-blue-500/10 border border-blue-500/30 rounded-xl p-6">
-                  <div className="flex items-start gap-3 text-left">
-                    <div className="text-2xl">💡</div>
+              {/* Assets Tab */}
+              {activeTab === "assets" && (
+                <div className="bg-gradient-to-br from-purple-900/30 to-pink-900/30 backdrop-blur-sm border border-purple-500/20 rounded-3xl p-8">
+                  <h2 className="text-3xl font-bold text-white mb-6">💰 Add Assets to Your Will</h2>
+                  
+                  {/* Asset Type Selector */}
+                  <div className="flex gap-3 mb-6">
+                    {["ETH", "ERC20", "ERC721"].map((type) => (
+                      <button
+                        key={type}
+                        onClick={() => setAssetType(type as any)}
+                        className={`px-6 py-3 rounded-xl font-semibold transition-all ${
+                          assetType === type
+                            ? "bg-gradient-to-r from-purple-600 to-pink-600 text-white shadow-lg"
+                            : "bg-white/5 text-purple-200 hover:bg-white/10"
+                        }`}
+                      >
+                        {type === "ETH" && "💎"} {type === "ERC20" && "🪙"} {type === "ERC721" && "🎨"} {type}
+                      </button>
+                    ))}
+                  </div>
+
+                  {/* Deposit Form */}
+                  <div className="bg-slate-800/30 border border-purple-500/20 rounded-2xl p-6 space-y-4">
+                    {assetType === "ETH" && (
+                      <>
+                        <div>
+                          <label className="block text-purple-200 mb-2 font-medium">Amount (ETH)</label>
+                          <input
+                            type="number"
+                            value={ethAmount}
+                            onChange={(e) => setEthAmount(e.target.value)}
+                            className="w-full px-4 py-3 bg-slate-800/50 border border-purple-500/30 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-purple-500"
+                            placeholder="0.1"
+                            step="0.001"
+                          />
+                        </div>
+                      </>
+                    )}
+
+                    {assetType === "ERC20" && (
+                      <>
+                        <div>
+                          <label className="block text-purple-200 mb-2 font-medium">Token Contract Address</label>
+                          <input
+                            type="text"
+                            value={tokenAddress}
+                            onChange={(e) => setTokenAddress(e.target.value)}
+                            className="w-full px-4 py-3 bg-slate-800/50 border border-purple-500/30 rounded-xl text-white font-mono text-sm focus:outline-none focus:ring-2 focus:ring-purple-500"
+                            placeholder="0x..."
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-purple-200 mb-2 font-medium">Amount (in token units)</label>
+                          <input
+                            type="text"
+                            value={tokenAmount}
+                            onChange={(e) => setTokenAmount(e.target.value)}
+                            className="w-full px-4 py-3 bg-slate-800/50 border border-purple-500/30 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-purple-500"
+                            placeholder="1000000000000000000"
+                          />
+                        </div>
+                      </>
+                    )}
+
+                    {assetType === "ERC721" && (
+                      <>
+                        <div>
+                          <label className="block text-purple-200 mb-2 font-medium">NFT Contract Address</label>
+                          <input
+                            type="text"
+                            value={tokenAddress}
+                            onChange={(e) => setTokenAddress(e.target.value)}
+                            className="w-full px-4 py-3 bg-slate-800/50 border border-purple-500/30 rounded-xl text-white font-mono text-sm focus:outline-none focus:ring-2 focus:ring-purple-500"
+                            placeholder="0x..."
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-purple-200 mb-2 font-medium">Token ID</label>
+                          <input
+                            type="text"
+                            value={tokenId}
+                            onChange={(e) => setTokenId(e.target.value)}
+                            className="w-full px-4 py-3 bg-slate-800/50 border border-purple-500/30 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-purple-500"
+                            placeholder="1"
+                          />
+                        </div>
+                      </>
+                    )}
+
                     <div>
-                      <h3 className="text-white font-bold mb-2">Next Steps</h3>
+                      <label className="block text-purple-200 mb-2 font-medium">Beneficiary Address</label>
+                      <input
+                        type="text"
+                        value={beneficiaryAddress}
+                        onChange={(e) => setBeneficiaryAddress(e.target.value)}
+                        className="w-full px-4 py-3 bg-slate-800/50 border border-purple-500/30 rounded-xl text-white font-mono text-sm focus:outline-none focus:ring-2 focus:ring-purple-500"
+                        placeholder="0x..."
+                      />
+                    </div>
+
+                    <div className="bg-blue-500/10 border border-blue-500/30 rounded-xl p-4">
                       <p className="text-blue-200 text-sm">
-                        Your will is now active! Remember to check in every {Number(willInfo.heartbeatInterval / BigInt(86400))} days to keep it active. 
-                        You can now add assets and beneficiaries to your will.
+                        💡 This asset will be claimable by the beneficiary if you miss your check-in deadline.
+                        {assetType === "ERC20" && " Make sure to approve the contract to spend your tokens first!"}
+                        {assetType === "ERC721" && " Make sure to approve the contract to transfer your NFT first!"}
+                      </p>
+                    </div>
+
+                    <button
+                      onClick={handleDepositAsset}
+                      className="w-full px-8 py-4 bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white rounded-xl font-bold text-lg transition-all transform hover:scale-105 shadow-lg"
+                    >
+                      Deposit {assetType} 🚀
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {/* Beneficiaries Tab */}
+              {activeTab === "beneficiaries" && (
+                <div className="bg-gradient-to-br from-purple-900/30 to-pink-900/30 backdrop-blur-sm border border-purple-500/20 rounded-3xl p-8">
+                  <h2 className="text-3xl font-bold text-white mb-4">👥 Manage Beneficiaries</h2>
+                  <p className="text-purple-200 mb-8">
+                    Beneficiaries are added automatically when you deposit assets. They will be able to claim their designated assets if you miss your check-in deadline.
+                  </p>
+                  
+                  <div className="bg-blue-500/10 border border-blue-500/30 rounded-xl p-6">
+                    <p className="text-blue-200">
+                      💡 To add a beneficiary, go to the "Add Assets" tab and deposit an asset with their address.
+                    </p>
+                  </div>
+                </div>
+              )}
+
+              {/* Settings Tab */}
+              {activeTab === "settings" && (
+                <div className="bg-gradient-to-br from-purple-900/30 to-pink-900/30 backdrop-blur-sm border border-purple-500/20 rounded-3xl p-8">
+                  <h2 className="text-3xl font-bold text-white mb-6">⚙️ Will Settings</h2>
+                  
+                  <div className="space-y-6">
+                    <div className="bg-slate-800/30 border border-purple-500/20 rounded-2xl p-6">
+                      <h3 className="text-white font-bold text-xl mb-4">Current Settings</h3>
+                      <div className="space-y-3">
+                        <div className="flex justify-between items-center">
+                          <span className="text-purple-200">Heartbeat Interval:</span>
+                          <span className="text-white font-semibold">
+                            {Number(willInfo.heartbeatInterval / BigInt(86400))} days
+                          </span>
+                        </div>
+                        <div className="flex justify-between items-center">
+                          <span className="text-purple-200">Will Status:</span>
+                          <span className="text-white font-semibold">{willInfo.state}</span>
+                        </div>
+                        <div className="flex justify-between items-center">
+                          <span className="text-purple-200">Total Assets:</span>
+                          <span className="text-white font-semibold">{willInfo.assetCount.toString()}</span>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="bg-yellow-500/10 border border-yellow-500/30 rounded-xl p-6">
+                      <h3 className="text-yellow-200 font-bold mb-2">⚠️ Advanced Features Coming Soon</h3>
+                      <p className="text-yellow-200/80 text-sm">
+                        Features like modifying heartbeat interval, emergency withdrawal, and asset removal will be available in future updates.
                       </p>
                     </div>
                   </div>
                 </div>
-              </div>
+              )}
             </div>
           )}
         </div>

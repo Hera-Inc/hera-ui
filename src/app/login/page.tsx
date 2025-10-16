@@ -6,7 +6,7 @@ import { useWeb3Auth } from "@/contexts/Web3AuthContext";
 
 export default function LoginPage() {
   const router = useRouter();
-  const { loggedIn, loading, address, login, logout } = useWeb3Auth();
+  const { loggedIn, loading, address, login, logout, currentChainId, switchChain } = useWeb3Auth();
 
   // Redirect to dashboard if already logged in
   useEffect(() => {
@@ -57,7 +57,7 @@ export default function LoginPage() {
                   Secure your digital inheritance with Web3 authentication
                 </p>
                 <div className="inline-block px-4 py-2 bg-purple-500/20 backdrop-blur-sm border border-purple-500/30 rounded-full text-purple-300 text-sm font-medium">
-                  🔒 Using Arbitrum One - Secure Layer 2 Network
+                  🔒 Using Base Sepolia - Secure Layer 2 Network
                 </div>
               </div>
 
@@ -121,6 +121,28 @@ export default function LoginPage() {
                     <div className="bg-slate-800/50 backdrop-blur-sm border border-purple-500/20 rounded-xl p-4">
                       <h3 className="text-purple-300 text-sm font-medium mb-2">Wallet Address</h3>
                       <p className="text-white font-mono text-sm break-all">{address}</p>
+                    </div>
+                  </div>
+                )}
+
+                {currentChainId && currentChainId !== "0x14a34" && (
+                  <div className="mb-6">
+                    <div className="bg-red-500/20 border border-red-500/50 rounded-xl p-4">
+                      <div className="flex items-center gap-3 mb-3">
+                        <span className="text-2xl">⚠️</span>
+                        <div>
+                          <p className="text-red-200 font-semibold">Wrong Network</p>
+                          <p className="text-red-300 text-sm">
+                            Please switch to Base Sepolia (Chain ID: 84532). Currently on: {parseInt(currentChainId, 16)}
+                          </p>
+                        </div>
+                      </div>
+                      <button
+                        onClick={switchChain}
+                        className="w-full px-6 py-2 bg-red-500 hover:bg-red-600 text-white rounded-lg font-semibold transition-all"
+                      >
+                        Switch to Base Sepolia
+                      </button>
                     </div>
                   </div>
                 )}
