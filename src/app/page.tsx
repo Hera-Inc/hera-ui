@@ -2,9 +2,24 @@
 
 import { useState } from "react";
 import Image from "next/image";
+import { useRouter } from "next/navigation";
+import { useWeb3Auth } from "@/contexts/Web3AuthContext";
 
 export default function Home() {
+  const router = useRouter();
+  const { loggedIn, loading } = useWeb3Auth();
   const [activeStep, setActiveStep] = useState(0);
+
+  const handleLogoClick = (e: React.MouseEvent) => {
+    e.preventDefault();
+    if (loading) return; // Don't navigate while loading auth state
+    
+    if (loggedIn) {
+      router.push("/dashboard");
+    } else {
+      router.push("/login");
+    }
+  };
 
   const features = [
     {
@@ -68,7 +83,10 @@ export default function Home() {
 
         <nav className="relative z-10 container mx-auto px-6 py-6">
           <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3 group">
+            <button 
+              onClick={handleLogoClick}
+              className="flex items-center gap-3 group cursor-pointer bg-transparent border-none p-0"
+            >
               <div className="relative w-10 h-10 transition-all transform group-hover:scale-110">
                 <Image 
                   src="/HeraLogo.png" 
@@ -82,7 +100,7 @@ export default function Home() {
               <span className="text-2xl font-bold bg-gradient-to-r from-purple-400 to-pink-400 bg-clip-text text-transparent">
                 Hera
               </span>
-            </div>
+            </button>
             <a href="/login" className="px-6 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-full font-semibold transition-all transform hover:scale-105 shadow-lg shadow-purple-500/50 inline-block">
               Log in / Sign up
             </a>
@@ -290,8 +308,11 @@ export default function Home() {
           <div className="max-w-6xl mx-auto">
             <div className="grid md:grid-cols-3 gap-8 mb-8">
               <div>
-                <div className="flex items-center gap-2 mb-4">
-                  <div className="relative w-8 h-8">
+                <button
+                  onClick={handleLogoClick}
+                  className="flex items-center gap-2 mb-4 cursor-pointer bg-transparent border-none p-0 group"
+                >
+                  <div className="relative w-8 h-8 transition-all transform group-hover:scale-110">
                     <Image 
                       src="/HeraLogo.png" 
                       alt="Hera Logo" 
@@ -303,7 +324,7 @@ export default function Home() {
                   <span className="text-xl font-bold bg-gradient-to-r from-purple-400 to-pink-400 bg-clip-text text-transparent">
                     Hera
                   </span>
-                </div>
+                </button>
                 <p className="text-purple-300">
                   Making digital inheritance simple and safe for everyone.
                 </p>

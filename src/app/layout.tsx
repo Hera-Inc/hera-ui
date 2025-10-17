@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import { Web3AuthProvider } from "@/contexts/Web3AuthContext";
+import { NotificationProvider } from "@/contexts/NotificationContext";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -28,9 +29,11 @@ export default function RootLayout({
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
-        <Web3AuthProvider>
-          {children}
-        </Web3AuthProvider>
+        <NotificationProvider>
+          <Web3AuthProvider>
+            {children}
+          </Web3AuthProvider>
+        </NotificationProvider>
       </body>
     </html>
   );

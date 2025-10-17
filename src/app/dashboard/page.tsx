@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import { useWeb3Auth } from "@/contexts/Web3AuthContext";
 import { useWillContract } from "@/hooks/useWillContract";
+import { useNotification } from "@/contexts/NotificationContext";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
 
@@ -11,6 +12,7 @@ type TabType = "overview" | "assets" | "beneficiaries" | "settings";
 export default function DashboardPage() {
   const router = useRouter();
   const { provider, address, loggedIn, loading: authLoading, logout, currentChainId, switchChain } = useWeb3Auth();
+  const notification = useNotification();
   
   // Form state
   const [heartbeatDays, setHeartbeatDays] = useState("30");
@@ -48,71 +50,84 @@ export default function DashboardPage() {
     try {
       const intervalSeconds = BigInt(Number.parseInt(heartbeatDays) * 24 * 60 * 60);
       await createWill(intervalSeconds);
-      alert("Will created successfully! 🎉");
+      notification.success("Will created successfully! 🎉");
     } catch (error) {
-      console.error("Error creating will:", error);
-      alert("Failed to create will. " + (error as Error).message);
+      notification.error("Failed to create will. " + (error as Error).message);
     }
   };
 
   const handleDepositAsset = async () => {
     try {
       if (!beneficiaryAddress) {
-        alert("Please enter a beneficiary address");
+        notification.warning("Please enter a beneficiary address");
         return;
       }
 
       if (assetType === "ETH") {
         if (!ethAmount) {
-          alert("Please enter an amount");
+          notification.warning("Please enter an amount");
           return;
         }
         const amountWei = BigInt(Math.floor(parseFloat(ethAmount) * 1e18));
         await depositEth(beneficiaryAddress as any, amountWei);
-        alert("ETH deposited successfully! 💰");
+        notification.success("ETH deposited successfully! 💰");
         setEthAmount("");
         setBeneficiaryAddress("");
       } else if (assetType === "ERC20") {
         if (!tokenAddress || !tokenAmount) {
-          alert("Please enter token address and amount");
+          notification.warning("Please enter token address and amount");
           return;
         }
         const amount = BigInt(tokenAmount);
         await depositERC20(tokenAddress as any, amount, beneficiaryAddress as any);
-        alert("ERC20 token deposited successfully! 🪙");
+        notification.success("ERC20 token deposited successfully! 🪙");
         setTokenAddress("");
         setTokenAmount("");
         setBeneficiaryAddress("");
       } else if (assetType === "ERC721") {
         if (!tokenAddress || !tokenId) {
-          alert("Please enter token address and token ID");
+          notification.warning("Please enter token address and token ID");
           return;
         }
         await depositERC721(tokenAddress as any, BigInt(tokenId), beneficiaryAddress as any);
-        alert("NFT deposited successfully! 🎨");
+        notification.success("NFT deposited successfully! 🎨");
         setTokenAddress("");
         setTokenId("");
         setBeneficiaryAddress("");
       }
     } catch (error) {
-      console.error("Error depositing asset:", error);
-      alert("Failed to deposit asset. " + (error as Error).message);
+      notification.error("Failed to deposit asset. " + (error as Error).message);
     }
   };
 
   const handleCheckIn = async () => {
     try {
       await checkIn();
-      alert("Check-in successful! ✅ Your will is now updated.");
+      notification.success("Check-in successful! ✅ Your will is now updated.");
     } catch (error) {
-      console.error("Error checking in:", error);
-      alert("Failed to check in. " + (error as Error).message);
+      notification.error("Failed to check in. " + (error as Error).message);
     }
   };
 
   const handleLogout = async () => {
-    await logout();
-    router.push("/");
+    try {
+      await logout();
+      notification.info("Successfully logged out");
+      router.push("/");
+    } catch (error) {
+      notification.error((error as Error).message || "Failed to logout");
+    }
+  };
+
+  const handleLogoClick = (e: React.MouseEvent) => {
+    e.preventDefault();
+    if (authLoading) return; // Don't navigate while loading auth state
+    
+    if (loggedIn) {
+      router.push("/dashboard");
+    } else {
+      router.push("/login");
+    }
   };
 
   // Show loading only during initial auth check
@@ -143,7 +158,10 @@ export default function DashboardPage() {
       {/* Navigation */}
       <nav className="relative z-10 container mx-auto px-6 py-6">
         <div className="flex items-center justify-between">
-          <a href="/" className="flex items-center gap-3 group">
+          <button 
+            onClick={handleLogoClick}
+            className="flex items-center gap-3 group cursor-pointer bg-transparent border-none p-0"
+          >
             <div className="relative w-10 h-10 transition-all transform group-hover:scale-110">
               <Image 
                 src="/HeraLogo.png" 
@@ -157,7 +175,7 @@ export default function DashboardPage() {
             <span className="text-2xl font-bold bg-gradient-to-r from-purple-400 to-pink-400 bg-clip-text text-transparent">
               Hera
             </span>
-          </a>
+          </button>
           <div className="flex items-center gap-4">
             {address && (
               <div className="px-4 py-2 bg-purple-500/20 backdrop-blur-sm border border-purple-500/30 rounded-full text-purple-300 text-sm font-mono">
@@ -186,7 +204,14 @@ export default function DashboardPage() {
                 </div>
               </div>
               <button
-                onClick={switchChain}
+                onClick={async () => {
+                  try {
+                    await switchChain();
+                    notification.success("Successfully switched to Base Sepolia!");
+                  } catch (error) {
+                    notification.error((error as Error).message || "Failed to switch network");
+                  }
+                }}
                 className="px-6 py-2 bg-red-500 hover:bg-red-600 text-white rounded-lg font-semibold transition-all whitespace-nowrap"
               >
                 Switch Network

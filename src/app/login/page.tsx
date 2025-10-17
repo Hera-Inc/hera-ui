@@ -3,11 +3,13 @@
 import { useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useWeb3Auth } from "@/contexts/Web3AuthContext";
+import { useNotification } from "@/contexts/NotificationContext";
 import Image from "next/image";
 
 export default function LoginPage() {
   const router = useRouter();
   const { loggedIn, loading, address, login, logout, currentChainId, switchChain } = useWeb3Auth();
+  const notification = useNotification();
 
   // Redirect to dashboard if already logged in
   useEffect(() => {
@@ -15,6 +17,17 @@ export default function LoginPage() {
       router.push("/dashboard");
     }
   }, [loading, loggedIn, router]);
+
+  const handleLogoClick = (e: React.MouseEvent) => {
+    e.preventDefault();
+    if (loading) return; // Don't navigate while loading auth state
+    
+    if (loggedIn) {
+      router.push("/dashboard");
+    } else {
+      router.push("/");
+    }
+  };
 
   if (loading) {
     return (
@@ -37,7 +50,10 @@ export default function LoginPage() {
 
       <nav className="relative z-10 container mx-auto px-6 py-6">
         <div className="flex items-center justify-between">
-          <a href="/" className="flex items-center gap-3 group">
+          <button 
+            onClick={handleLogoClick}
+            className="flex items-center gap-3 group cursor-pointer bg-transparent border-none p-0"
+          >
             <div className="relative w-10 h-10 transition-all transform group-hover:scale-110">
               <Image 
                 src="/HeraLogo.png" 
@@ -51,7 +67,7 @@ export default function LoginPage() {
             <span className="text-2xl font-bold bg-gradient-to-r from-purple-400 to-pink-400 bg-clip-text text-transparent">
               Hera
             </span>
-          </a>
+          </button>
         </div>
       </nav>
 
@@ -104,7 +120,14 @@ export default function LoginPage() {
                 </div>
 
                 <button
-                  onClick={login}
+                  onClick={async () => {
+                    try {
+                      await login();
+                      notification.success("Successfully connected!");
+                    } catch (error) {
+                      notification.error((error as Error).message || "Failed to connect wallet");
+                    }
+                  }}
                   className="w-full px-8 py-4 bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white rounded-xl font-bold text-lg transition-all transform hover:scale-105 shadow-2xl shadow-purple-500/50"
                 >
                   Connect Wallet & Sign In 🚀
@@ -151,7 +174,14 @@ export default function LoginPage() {
                         </div>
                       </div>
                       <button
-                        onClick={switchChain}
+                        onClick={async () => {
+                          try {
+                            await switchChain();
+                            notification.success("Successfully switched to Base Sepolia!");
+                          } catch (error) {
+                            notification.error((error as Error).message || "Failed to switch network");
+                          }
+                        }}
                         className="w-full px-6 py-2 bg-red-500 hover:bg-red-600 text-white rounded-lg font-semibold transition-all"
                       >
                         Switch to Base Sepolia
@@ -169,7 +199,14 @@ export default function LoginPage() {
                   </button>
                   
                   <button
-                    onClick={logout}
+                    onClick={async () => {
+                      try {
+                        await logout();
+                        notification.info("Successfully logged out");
+                      } catch (error) {
+                        notification.error((error as Error).message || "Failed to logout");
+                      }
+                    }}
                     className="flex-1 px-8 py-4 bg-white/10 hover:bg-white/20 backdrop-blur-sm text-white rounded-xl font-bold text-lg transition-all border border-white/20"
                   >
                     Logout

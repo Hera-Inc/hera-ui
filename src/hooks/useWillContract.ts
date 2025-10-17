@@ -55,7 +55,8 @@ export function useWillContract(provider: any, address: string) {
         assetCount,
       });
     } catch (error) {
-      console.error("Error loading will info:", error);
+      // Silent fail for loading will info - component will show empty state
+      setWillInfo(null);
     } finally {
       setLoading(false);
     }

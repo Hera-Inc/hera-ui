@@ -89,13 +89,21 @@ export function Web3AuthProvider({ children }: { children: ReactNode }) {
         await web3authInstance.init();
         setWeb3auth(web3authInstance);
 
-        if (web3authInstance.connected) {
+        if (web3authInstance.connected && web3authInstance.provider) {
           setProvider(web3authInstance.provider);
           setLoggedIn(true);
+          
+          // Automatically switch to BASE Sepolia if needed
+          const currentChain = await checkChainId(web3authInstance.provider);
+          const targetChainId = "0x14a34"; // Base Sepolia
+          if (currentChain !== targetChainId) {
+            await ensureBaseSepolia(web3authInstance.provider);
+          }
+          
           await getUserInfo(web3authInstance);
         }
       } catch (error) {
-        console.error("Error initializing Web3Auth:", error);
+        // Initialization error - silent fail, app will show not connected state
       } finally {
         setLoading(false);
       }
@@ -110,31 +118,25 @@ export function Web3AuthProvider({ children }: { children: ReactNode }) {
       setCurrentChainId(chainId);
       return chainId;
     } catch (error) {
-      console.error("Error checking chain ID:", error);
       return null;
     }
   };
 
-  const switchChain = async () => {
-    if (!provider) {
-      console.log("Provider not available");
-      return;
-    }
-
+  const ensureBaseSepolia = async (providerInstance: IProvider) => {
     try {
       const targetChainId = "0x14a34"; // Base Sepolia (84532 in hex)
       
-      await provider.request({
+      await providerInstance.request({
         method: "wallet_switchEthereumChain",
         params: [{ chainId: targetChainId }],
       });
       
-      await checkChainId(provider);
+      await checkChainId(providerInstance);
     } catch (error: any) {
       // If the chain hasn't been added to the wallet, add it
       if (error.code === 4902) {
         try {
-          await provider.request({
+          await providerInstance.request({
             method: "wallet_addEthereumChain",
             params: [
               {
@@ -151,14 +153,22 @@ export function Web3AuthProvider({ children }: { children: ReactNode }) {
             ],
           });
           
-          await checkChainId(provider);
+          await checkChainId(providerInstance);
         } catch (addError) {
-          console.error("Error adding chain:", addError);
+          throw new Error("Failed to add Base Sepolia network");
         }
       } else {
-        console.error("Error switching chain:", error);
+        throw new Error("Failed to switch network");
       }
     }
+  };
+
+  const switchChain = async () => {
+    if (!provider) {
+      return;
+    }
+
+    await ensureBaseSepolia(provider);
   };
 
   const getUserInfo = async (web3authInstance: Web3Auth) => {
@@ -168,7 +178,13 @@ export function Web3AuthProvider({ children }: { children: ReactNode }) {
 
       if (web3authInstance.provider) {
         // Check current chain
-        await checkChainId(web3authInstance.provider);
+        const currentChain = await checkChainId(web3authInstance.provider);
+        
+        // Automatically switch to BASE Sepolia if on a different chain
+        const targetChainId = "0x14a34"; // Base Sepolia
+        if (currentChain !== targetChainId) {
+          await ensureBaseSepolia(web3authInstance.provider);
+        }
 
         const walletClient = createWalletClient({
           chain: baseSepolia,
@@ -181,14 +197,13 @@ export function Web3AuthProvider({ children }: { children: ReactNode }) {
         }
       }
     } catch (error) {
-      console.error("Error getting user info:", error);
+      throw new Error("Failed to get user information");
     }
   };
 
   const login = async () => {
     if (!web3auth) {
-      console.log("Web3Auth not initialized");
-      return;
+      throw new Error("Web3Auth not initialized");
     }
 
     try {
@@ -197,14 +212,13 @@ export function Web3AuthProvider({ children }: { children: ReactNode }) {
       setLoggedIn(true);
       await getUserInfo(web3auth);
     } catch (error) {
-      console.error("Error logging in:", error);
+      throw new Error("Failed to login");
     }
   };
 
   const logout = async () => {
     if (!web3auth) {
-      console.log("Web3Auth not initialized");
-      return;
+      throw new Error("Web3Auth not initialized");
     }
 
     try {
@@ -215,7 +229,7 @@ export function Web3AuthProvider({ children }: { children: ReactNode }) {
       setAddress("");
       setCurrentChainId(null);
     } catch (error) {
-      console.error("Error logging out:", error);
+      throw new Error("Failed to logout");
     }
   };
 
@@ -238,4 +252,3 @@ export function Web3AuthProvider({ children }: { children: ReactNode }) {
     </Web3AuthContext.Provider>
   );
 }
-

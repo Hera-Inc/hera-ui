@@ -5,4 +5,6 @@ export { Input, TextArea } from "./Input";
 export { Loading, Spinner } from "./Loading";
 export { StatusBadge } from "./StatusBadge";
 export { Alert } from "./Alert";
+export { Toast, ToastContainer } from "./Toast";
+export type { ToastType, ToastProps } from "./Toast";
 
