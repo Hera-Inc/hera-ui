@@ -18,6 +18,8 @@ const chainConfig = {
   logo: "https://cryptologos.cc/logos/base-logo.png",
 };
 
+export type UserRole = "grantor" | "beneficiary" | null;
+
 interface Web3AuthContextType {
   web3auth: Web3Auth | null;
   provider: IProvider | null;
@@ -26,9 +28,11 @@ interface Web3AuthContextType {
   userInfo: any;
   address: string;
   currentChainId: string | null;
+  userRole: UserRole;
   login: () => Promise<void>;
   logout: () => Promise<void>;
   switchChain: () => Promise<void>;
+  setUserRole: (role: UserRole) => void;
 }
 
 const Web3AuthContext = createContext<Web3AuthContextType>({
@@ -39,9 +43,11 @@ const Web3AuthContext = createContext<Web3AuthContextType>({
   userInfo: null,
   address: "",
   currentChainId: null,
+  userRole: null,
   login: async () => {},
   logout: async () => {},
   switchChain: async () => {},
+  setUserRole: () => {},
 });
 
 export function useWeb3Auth() {
@@ -56,6 +62,7 @@ export function Web3AuthProvider({ children }: { children: ReactNode }) {
   const [userInfo, setUserInfo] = useState<any>(null);
   const [address, setAddress] = useState<string>("");
   const [currentChainId, setCurrentChainId] = useState<string | null>(null);
+  const [userRole, setUserRole] = useState<UserRole>(null);
 
   useEffect(() => {
     const init = async () => {
@@ -228,6 +235,7 @@ export function Web3AuthProvider({ children }: { children: ReactNode }) {
       setUserInfo(null);
       setAddress("");
       setCurrentChainId(null);
+      setUserRole(null);
     } catch (error) {
       throw new Error("Failed to logout");
     }
@@ -243,9 +251,11 @@ export function Web3AuthProvider({ children }: { children: ReactNode }) {
         userInfo,
         address,
         currentChainId,
+        userRole,
         login,
         logout,
         switchChain,
+        setUserRole,
       }}
     >
       {children}

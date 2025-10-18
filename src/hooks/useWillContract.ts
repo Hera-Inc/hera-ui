@@ -12,6 +12,24 @@ export interface WillInfo {
   assetCount: bigint;
 }
 
+export interface AssetInfo {
+  assetType: number;
+  tokenAddress: string;
+  tokenId: bigint;
+  amount: bigint;
+  beneficiary: string;
+  claimed: boolean;
+}
+
+export interface BeneficiaryAsset {
+  grantor: string;
+  assetIndex: bigint;
+  assetInfo: AssetInfo;
+  timeUntilClaimable: bigint | null;
+  isClaimable: boolean;
+  hasAccepted: boolean;
+}
+
 export function useWillContract(provider: any, address: string) {
   const [willInfo, setWillInfo] = useState<WillInfo | null>(null);
   const [loading, setLoading] = useState(true);
@@ -155,6 +173,171 @@ export function useWillContract(provider: any, address: string) {
     return hash;
   };
 
+  // Beneficiary-related methods
+  const getBeneficiaryAssets = async (grantorAddress: Address) => {
+    try {
+      const assetIndices = await publicClient.readContract({
+        address: WILL_CONTRACT_ADDRESS,
+        abi: WILL_CONTRACT_ABI,
+        functionName: "getBeneficiaryAssets",
+        args: [grantorAddress, address as Address],
+      });
+
+      const assets: BeneficiaryAsset[] = [];
+      
+      for (const assetIndex of assetIndices) {
+        // Get asset details
+        const assetInfo = await publicClient.readContract({
+          address: WILL_CONTRACT_ADDRESS,
+          abi: WILL_CONTRACT_ABI,
+          functionName: "getAsset",
+          args: [grantorAddress, assetIndex],
+        });
+
+        const [assetType, tokenAddress, tokenId, amount, beneficiary, claimed] = assetInfo;
+
+        // Check if beneficiary has accepted
+        const hasAccepted = await publicClient.readContract({
+          address: WILL_CONTRACT_ADDRESS,
+          abi: WILL_CONTRACT_ABI,
+          functionName: "hasBeneficiaryAccepted",
+          args: [grantorAddress, address as Address],
+        });
+
+        // Check if will is claimable
+        const isClaimableWill = await publicClient.readContract({
+          address: WILL_CONTRACT_ADDRESS,
+          abi: WILL_CONTRACT_ABI,
+          functionName: "isClaimable",
+          args: [grantorAddress],
+        });
+
+        // Get will info to calculate time until claimable
+        const grantorWillInfo = await publicClient.readContract({
+          address: WILL_CONTRACT_ADDRESS,
+          abi: WILL_CONTRACT_ABI,
+          functionName: "getWillInfo",
+          args: [grantorAddress],
+        });
+
+        const [lastCheckIn, heartbeatInterval] = grantorWillInfo;
+        const currentTime = BigInt(Math.floor(Date.now() / 1000));
+        const claimableTime = lastCheckIn + heartbeatInterval;
+        const timeUntilClaimable = claimableTime > currentTime ? claimableTime - currentTime : BigInt(0);
+
+        assets.push({
+          grantor: grantorAddress,
+          assetIndex,
+          assetInfo: {
+            assetType: Number(assetType),
+            tokenAddress,
+            tokenId,
+            amount,
+            beneficiary,
+            claimed,
+          },
+          timeUntilClaimable: timeUntilClaimable > 0 ? timeUntilClaimable : null,
+          isClaimable: isClaimableWill,
+          hasAccepted,
+        });
+      }
+
+      return assets;
+    } catch (error) {
+      console.error("Error fetching beneficiary assets:", error);
+      return [];
+    }
+  };
+
+  const acceptBeneficiary = async (grantorAddress: Address) => {
+    const walletClient = getWalletClient();
+    const [account] = await walletClient.getAddresses();
+
+    const hash = await walletClient.writeContract({
+      address: WILL_CONTRACT_ADDRESS,
+      abi: WILL_CONTRACT_ABI,
+      functionName: "acceptBeneficiary",
+      args: [grantorAddress],
+      account,
+    });
+
+    await publicClient.waitForTransactionReceipt({ hash });
+    return hash;
+  };
+
+  const rejectBeneficiary = async (grantorAddress: Address) => {
+    const walletClient = getWalletClient();
+    const [account] = await walletClient.getAddresses();
+
+    const hash = await walletClient.writeContract({
+      address: WILL_CONTRACT_ADDRESS,
+      abi: WILL_CONTRACT_ABI,
+      functionName: "rejectBeneficiary",
+      args: [grantorAddress],
+      account,
+    });
+
+    await publicClient.waitForTransactionReceipt({ hash });
+    return hash;
+  };
+
+  const claimAsset = async (grantorAddress: Address, assetIndex: bigint) => {
+    const walletClient = getWalletClient();
+    const [account] = await walletClient.getAddresses();
+
+    const hash = await walletClient.writeContract({
+      address: WILL_CONTRACT_ADDRESS,
+      abi: WILL_CONTRACT_ABI,
+      functionName: "claimAsset",
+      args: [grantorAddress, assetIndex],
+      account,
+    });
+
+    await publicClient.waitForTransactionReceipt({ hash });
+    return hash;
+  };
+
+  const isApprovedBeneficiary = async (grantorAddress: Address, beneficiaryAddress: Address) => {
+    return await publicClient.readContract({
+      address: WILL_CONTRACT_ADDRESS,
+      abi: WILL_CONTRACT_ABI,
+      functionName: "isApprovedBeneficiary",
+      args: [grantorAddress, beneficiaryAddress],
+    });
+  };
+
+  const approveContractBeneficiary = async (beneficiaryAddress: Address) => {
+    const walletClient = getWalletClient();
+    const [account] = await walletClient.getAddresses();
+
+    const hash = await walletClient.writeContract({
+      address: WILL_CONTRACT_ADDRESS,
+      abi: WILL_CONTRACT_ABI,
+      functionName: "approveContractBeneficiary",
+      args: [beneficiaryAddress],
+      account,
+    });
+
+    await publicClient.waitForTransactionReceipt({ hash });
+    return hash;
+  };
+
+  const revokeContractBeneficiary = async (beneficiaryAddress: Address) => {
+    const walletClient = getWalletClient();
+    const [account] = await walletClient.getAddresses();
+
+    const hash = await walletClient.writeContract({
+      address: WILL_CONTRACT_ADDRESS,
+      abi: WILL_CONTRACT_ABI,
+      functionName: "revokeContractBeneficiary",
+      args: [beneficiaryAddress],
+      account,
+    });
+
+    await publicClient.waitForTransactionReceipt({ hash });
+    return hash;
+  };
+
   return {
     willInfo,
     loading,
@@ -164,5 +347,13 @@ export function useWillContract(provider: any, address: string) {
     depositERC721,
     checkIn,
     refreshWillInfo: loadWillInfo,
+    // Beneficiary methods
+    getBeneficiaryAssets,
+    acceptBeneficiary,
+    rejectBeneficiary,
+    claimAsset,
+    isApprovedBeneficiary,
+    approveContractBeneficiary,
+    revokeContractBeneficiary,
   };
 }

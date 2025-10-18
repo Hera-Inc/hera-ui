@@ -1,22 +1,25 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { useWeb3Auth } from "@/contexts/Web3AuthContext";
-import { useWillContract } from "@/hooks/useWillContract";
+import { useWeb3Auth, UserRole } from "@/contexts/Web3AuthContext";
+import { useWillContract, BeneficiaryAsset } from "@/hooks/useWillContract";
 import { useNotification } from "@/contexts/NotificationContext";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
+import { Address } from "viem";
 
 type TabType = "overview" | "assets" | "beneficiaries" | "settings";
+type BeneficiaryTabType = "overview" | "assets" | "pending";
 
 export default function DashboardPage() {
   const router = useRouter();
-  const { provider, address, loggedIn, loading: authLoading, logout, currentChainId, switchChain } = useWeb3Auth();
+  const { provider, address, loggedIn, loading: authLoading, logout, currentChainId, switchChain, userRole, setUserRole } = useWeb3Auth();
   const notification = useNotification();
   
   // Form state
   const [heartbeatDays, setHeartbeatDays] = useState("30");
   const [activeTab, setActiveTab] = useState<TabType>("overview");
+  const [beneficiaryTab, setBeneficiaryTab] = useState<BeneficiaryTabType>("overview");
   
   // Asset deposit form state
   const [assetType, setAssetType] = useState<"ETH" | "ERC20" | "ERC721">("ETH");
@@ -25,6 +28,11 @@ export default function DashboardPage() {
   const [tokenAmount, setTokenAmount] = useState("");
   const [tokenId, setTokenId] = useState("");
   const [beneficiaryAddress, setBeneficiaryAddress] = useState("");
+  
+  // Beneficiary state
+  const [beneficiaryAssets, setBeneficiaryAssets] = useState<BeneficiaryAsset[]>([]);
+  const [loadingBeneficiaryAssets, setLoadingBeneficiaryAssets] = useState(false);
+  const [grantorAddress, setGrantorAddress] = useState("");
 
   // Only use contract hook if logged in
   const contractHook = useWillContract(loggedIn ? provider : null, loggedIn ? address : "");
@@ -37,14 +45,22 @@ export default function DashboardPage() {
     depositERC20,
     depositERC721,
     checkIn,
+    // Beneficiary methods
+    getBeneficiaryAssets,
+    acceptBeneficiary,
+    rejectBeneficiary,
+    claimAsset,
+    isApprovedBeneficiary,
+    approveContractBeneficiary,
+    revokeContractBeneficiary,
   } = contractHook;
 
-  // Redirect if not logged in
+  // Redirect if not logged in or no role selected
   useEffect(() => {
-    if (!authLoading && !loggedIn) {
+    if (!authLoading && (!loggedIn || !userRole)) {
       router.push("/login");
     }
-  }, [authLoading, loggedIn, router]);
+  }, [authLoading, loggedIn, userRole, router]);
 
   const handleCreateWill = async () => {
     try {
@@ -127,6 +143,69 @@ export default function DashboardPage() {
       router.push("/dashboard");
     } else {
       router.push("/login");
+    }
+  };
+
+  // Beneficiary handlers
+  const loadBeneficiaryAssets = async (grantorAddr: string) => {
+    if (!grantorAddr) return;
+    
+    try {
+      setLoadingBeneficiaryAssets(true);
+      const assets = await getBeneficiaryAssets(grantorAddr as Address);
+      setBeneficiaryAssets(assets);
+    } catch (error) {
+      notification.error("Failed to load beneficiary assets: " + (error as Error).message);
+    } finally {
+      setLoadingBeneficiaryAssets(false);
+    }
+  };
+
+  const handleAcceptBeneficiary = async (grantorAddr: string) => {
+    try {
+      await acceptBeneficiary(grantorAddr as Address);
+      notification.success("You have accepted the beneficiary designation! 🎉");
+      await loadBeneficiaryAssets(grantorAddr);
+    } catch (error) {
+      notification.error("Failed to accept beneficiary designation: " + (error as Error).message);
+    }
+  };
+
+  const handleRejectBeneficiary = async (grantorAddr: string) => {
+    try {
+      await rejectBeneficiary(grantorAddr as Address);
+      notification.info("You have rejected the beneficiary designation.");
+      await loadBeneficiaryAssets(grantorAddr);
+    } catch (error) {
+      notification.error("Failed to reject beneficiary designation: " + (error as Error).message);
+    }
+  };
+
+  const handleClaimAsset = async (grantorAddr: string, assetIndex: bigint) => {
+    try {
+      await claimAsset(grantorAddr as Address, assetIndex);
+      notification.success("Asset claimed successfully! 🎉");
+      await loadBeneficiaryAssets(grantorAddr);
+    } catch (error) {
+      notification.error("Failed to claim asset: " + (error as Error).message);
+    }
+  };
+
+  const handleApproveContractBeneficiary = async (beneficiaryAddr: string) => {
+    try {
+      await approveContractBeneficiary(beneficiaryAddr as Address);
+      notification.success("Contract beneficiary approved successfully! ✅");
+    } catch (error) {
+      notification.error("Failed to approve contract beneficiary: " + (error as Error).message);
+    }
+  };
+
+  const handleRevokeContractBeneficiary = async (beneficiaryAddr: string) => {
+    try {
+      await revokeContractBeneficiary(beneficiaryAddr as Address);
+      notification.info("Contract beneficiary approval revoked.");
+    } catch (error) {
+      notification.error("Failed to revoke contract beneficiary: " + (error as Error).message);
     }
   };
 
@@ -227,22 +306,34 @@ export default function DashboardPage() {
           {/* Header */}
           <div className="mb-8">
             <h1 className="text-4xl md:text-5xl font-bold text-white mb-2">
-              Create Your Digital Will
+              {userRole === "grantor" ? "Create Your Digital Will" : "Beneficiary Dashboard"}
             </h1>
             <p className="text-purple-200 text-lg">
-              Set up your digital inheritance in minutes 🛡️
+              {userRole === "grantor" 
+                ? "Set up your digital inheritance in minutes 🛡️"
+                : "View and manage assets assigned to you 🎁"
+              }
             </p>
+            <div className="mt-2">
+              <span className="inline-block px-4 py-2 bg-purple-500/20 backdrop-blur-sm border border-purple-500/30 rounded-full text-purple-300 text-sm font-medium">
+                Role: {userRole === "grantor" ? "👑 Grantor" : "🎁 Beneficiary"}
+              </span>
+            </div>
           </div>
 
-          {/* Loading state */}
-          {contractLoading ? (
-            <div className="bg-gradient-to-br from-purple-900/30 to-pink-900/30 backdrop-blur-sm border border-purple-500/20 rounded-3xl p-8">
-              <div className="text-center py-12">
-                <div className="w-16 h-16 border-4 border-purple-500 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
-                <p className="text-purple-200 text-lg">Loading your will information...</p>
-              </div>
-            </div>
-          ) : !willInfo || willInfo.state === "INACTIVE" ? (
+          {/* Role-based content */}
+          {userRole === "grantor" ? (
+            /* Grantor Interface */
+            <>
+              {/* Loading state */}
+              {contractLoading ? (
+                <div className="bg-gradient-to-br from-purple-900/30 to-pink-900/30 backdrop-blur-sm border border-purple-500/20 rounded-3xl p-8">
+                  <div className="text-center py-12">
+                    <div className="w-16 h-16 border-4 border-purple-500 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+                    <p className="text-purple-200 text-lg">Loading your will information...</p>
+                  </div>
+                </div>
+              ) : !willInfo || willInfo.state === "INACTIVE" ? (
             /* Create Will Form */
             <div className="bg-gradient-to-br from-purple-900/30 to-pink-900/30 backdrop-blur-sm border border-purple-500/20 rounded-3xl p-8 md:p-12 max-w-3xl mx-auto">
               <div className="text-center mb-8">
@@ -512,15 +603,68 @@ export default function DashboardPage() {
               {/* Beneficiaries Tab */}
               {activeTab === "beneficiaries" && (
                 <div className="bg-gradient-to-br from-purple-900/30 to-pink-900/30 backdrop-blur-sm border border-purple-500/20 rounded-3xl p-8">
-                  <h2 className="text-3xl font-bold text-white mb-4">👥 Manage Beneficiaries</h2>
-                  <p className="text-purple-200 mb-8">
-                    Beneficiaries are added automatically when you deposit assets. They will be able to claim their designated assets if you miss your check-in deadline.
-                  </p>
+                  <h2 className="text-3xl font-bold text-white mb-6">👥 Manage Beneficiaries</h2>
                   
-                  <div className="bg-blue-500/10 border border-blue-500/30 rounded-xl p-6">
-                    <p className="text-blue-200">
-                      💡 To add a beneficiary, go to the "Add Assets" tab and deposit an asset with their address.
-                    </p>
+                  <div className="grid md:grid-cols-2 gap-8">
+                    {/* Add Contract Beneficiaries */}
+                    <div className="bg-slate-800/30 border border-purple-500/20 rounded-2xl p-6">
+                      <h3 className="text-white font-bold text-xl mb-4">Approve Contract Beneficiaries</h3>
+                      <p className="text-purple-200 text-sm mb-6">
+                        Before assigning assets to contract addresses, you must approve them as beneficiaries.
+                      </p>
+                      
+                      <div className="space-y-4">
+                        <div>
+                          <label className="block text-purple-200 mb-2 font-medium">Contract Address</label>
+                          <input
+                            type="text"
+                            value={beneficiaryAddress}
+                            onChange={(e) => setBeneficiaryAddress(e.target.value)}
+                            className="w-full px-4 py-3 bg-slate-800/50 border border-purple-500/30 rounded-xl text-white font-mono text-sm focus:outline-none focus:ring-2 focus:ring-purple-500"
+                            placeholder="0x..."
+                          />
+                        </div>
+                        
+                        <button
+                          onClick={async () => {
+                            if (!beneficiaryAddress) {
+                              notification.warning("Please enter a contract address");
+                              return;
+                            }
+                            try {
+                              await handleApproveContractBeneficiary(beneficiaryAddress);
+                              setBeneficiaryAddress("");
+                            } catch (error) {
+                              notification.error("Failed to approve contract beneficiary");
+                            }
+                          }}
+                          className="w-full px-6 py-3 bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white rounded-xl font-semibold transition-all"
+                        >
+                          Approve Contract Beneficiary ✅
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* Info Section */}
+                    <div className="space-y-6">
+                      <div className="bg-blue-500/10 border border-blue-500/30 rounded-xl p-6">
+                        <h4 className="text-blue-200 font-bold mb-2">💡 How Beneficiaries Work</h4>
+                        <ul className="text-blue-200 text-sm space-y-2">
+                          <li>• Regular addresses (EOAs) can be assigned assets directly</li>
+                          <li>• Contract addresses must be approved first</li>
+                          <li>• Beneficiaries can accept/reject their designation</li>
+                          <li>• Assets become claimable if you miss check-ins</li>
+                        </ul>
+                      </div>
+                      
+                      <div className="bg-green-500/10 border border-green-500/30 rounded-xl p-6">
+                        <h4 className="text-green-200 font-bold mb-2">✅ Adding Beneficiaries</h4>
+                        <p className="text-green-200 text-sm">
+                          Go to the "Add Assets" tab and deposit assets with beneficiary addresses. 
+                          They will automatically be notified and can accept their designation.
+                        </p>
+                      </div>
+                    </div>
                   </div>
                 </div>
               )}
@@ -557,6 +701,243 @@ export default function DashboardPage() {
                         Features like modifying heartbeat interval, emergency withdrawal, and asset removal will be available in future updates.
                       </p>
                     </div>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+            </>
+          ) : (
+            /* Beneficiary Interface */
+            <div>
+              {/* Grantor Address Input */}
+              <div className="bg-gradient-to-br from-purple-900/30 to-pink-900/30 backdrop-blur-sm border border-purple-500/20 rounded-3xl p-8 mb-8">
+                <h2 className="text-2xl font-bold text-white mb-6">🔍 Find Assets</h2>
+                <div className="flex gap-4 items-end">
+                  <div className="flex-1">
+                    <label className="block text-purple-200 mb-2 font-medium">Grantor Address</label>
+                    <input
+                      type="text"
+                      value={grantorAddress}
+                      onChange={(e) => setGrantorAddress(e.target.value)}
+                      className="w-full px-4 py-3 bg-slate-800/50 border border-purple-500/30 rounded-xl text-white font-mono text-sm focus:outline-none focus:ring-2 focus:ring-purple-500"
+                      placeholder="Enter the grantor's address..."
+                    />
+                  </div>
+                  <button
+                    onClick={() => loadBeneficiaryAssets(grantorAddress)}
+                    disabled={!grantorAddress || loadingBeneficiaryAssets}
+                    className="px-6 py-3 bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 disabled:from-gray-600 disabled:to-gray-700 text-white rounded-xl font-semibold transition-all"
+                  >
+                    {loadingBeneficiaryAssets ? "Loading..." : "Search"}
+                  </button>
+                </div>
+              </div>
+
+              {/* Beneficiary Tabs */}
+              <div className="flex gap-2 mb-6 overflow-x-auto">
+                {[
+                  { id: "overview", label: "Overview", icon: "📊" },
+                  { id: "assets", label: "My Assets", icon: "💰" },
+                  { id: "pending", label: "Pending", icon: "⏳" },
+                ].map((tab) => (
+                  <button
+                    key={tab.id}
+                    onClick={() => setBeneficiaryTab(tab.id as BeneficiaryTabType)}
+                    className={`px-6 py-3 rounded-xl font-semibold transition-all whitespace-nowrap ${
+                      beneficiaryTab === tab.id
+                        ? "bg-gradient-to-r from-green-600 to-emerald-600 text-white shadow-lg"
+                        : "bg-white/5 text-purple-200 hover:bg-white/10"
+                    }`}
+                  >
+                    {tab.icon} {tab.label}
+                  </button>
+                ))}
+              </div>
+
+              {/* Beneficiary Overview Tab */}
+              {beneficiaryTab === "overview" && (
+                <div className="bg-gradient-to-br from-green-900/30 to-emerald-900/30 backdrop-blur-sm border border-green-500/20 rounded-3xl p-8">
+                  <div className="text-center mb-8">
+                    <div className="text-6xl mb-4">🎁</div>
+                    <h2 className="text-3xl font-bold text-white mb-2">Beneficiary Overview</h2>
+                    <p className="text-green-200">View and manage assets assigned to you</p>
+                  </div>
+
+                  <div className="grid md:grid-cols-3 gap-4 mb-8">
+                    <div className="bg-slate-800/50 border border-green-500/20 rounded-xl p-5">
+                      <div className="text-green-300 text-sm mb-1">Total Assets</div>
+                      <div className="text-white text-2xl font-bold">{beneficiaryAssets.length}</div>
+                    </div>
+                    <div className="bg-slate-800/50 border border-green-500/20 rounded-xl p-5">
+                      <div className="text-green-300 text-sm mb-1">Claimable</div>
+                      <div className="text-white text-2xl font-bold">
+                        {beneficiaryAssets.filter(asset => asset.isClaimable && !asset.assetInfo.claimed).length}
+                      </div>
+                    </div>
+                    <div className="bg-slate-800/50 border border-green-500/20 rounded-xl p-5">
+                      <div className="text-green-300 text-sm mb-1">Already Claimed</div>
+                      <div className="text-white text-2xl font-bold">
+                        {beneficiaryAssets.filter(asset => asset.assetInfo.claimed).length}
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="bg-blue-500/10 border border-blue-500/30 rounded-xl p-6">
+                    <h3 className="text-blue-200 font-bold mb-2">💡 How it works</h3>
+                    <p className="text-blue-200 text-sm">
+                      As a beneficiary, you can view assets assigned to you, accept your designation, 
+                      and claim assets when they become available (if the grantor misses their check-in deadline).
+                    </p>
+                  </div>
+                </div>
+              )}
+
+              {/* Beneficiary Assets Tab */}
+              {beneficiaryTab === "assets" && (
+                <div className="bg-gradient-to-br from-green-900/30 to-emerald-900/30 backdrop-blur-sm border border-green-500/20 rounded-3xl p-8">
+                  <h2 className="text-3xl font-bold text-white mb-6">💰 My Assets</h2>
+                  
+                  {loadingBeneficiaryAssets ? (
+                    <div className="text-center py-12">
+                      <div className="w-16 h-16 border-4 border-green-500 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+                      <p className="text-green-200 text-lg">Loading assets...</p>
+                    </div>
+                  ) : beneficiaryAssets.length === 0 ? (
+                    <div className="text-center py-12">
+                      <div className="text-6xl mb-4">🔍</div>
+                      <h3 className="text-xl font-bold text-white mb-2">No assets found</h3>
+                      <p className="text-green-200">
+                        {grantorAddress 
+                          ? "No assets assigned to you by this grantor."
+                          : "Enter a grantor address above to search for assigned assets."
+                        }
+                      </p>
+                    </div>
+                  ) : (
+                    <div className="space-y-4">
+                      {beneficiaryAssets.map((asset, index) => (
+                        <div key={index} className="bg-slate-800/30 border border-green-500/20 rounded-xl p-6">
+                          <div className="flex justify-between items-start mb-4">
+                            <div>
+                              <div className="flex items-center gap-3 mb-2">
+                                <span className="text-2xl">
+                                  {asset.assetInfo.assetType === 0 ? "💎" : 
+                                   asset.assetInfo.assetType === 1 ? "🪙" : "🎨"}
+                                </span>
+                                <span className="text-white font-bold text-lg">
+                                  {asset.assetInfo.assetType === 0 ? "ETH" : 
+                                   asset.assetInfo.assetType === 1 ? "ERC20 Token" : "ERC721 NFT"}
+                                </span>
+                                {asset.assetInfo.claimed && (
+                                  <span className="px-3 py-1 bg-green-500/20 text-green-300 rounded-full text-sm font-medium">
+                                    Claimed ✅
+                                  </span>
+                                )}
+                              </div>
+                              <div className="text-green-300 text-sm font-mono mb-1">
+                                Amount: {asset.assetInfo.assetType === 2 ? `Token ID: ${asset.assetInfo.tokenId}` : `${Number(asset.assetInfo.amount) / 1e18} ${asset.assetInfo.assetType === 0 ? 'ETH' : 'tokens'}`}
+                              </div>
+                              {asset.assetInfo.assetType !== 0 && (
+                                <div className="text-purple-300 text-sm font-mono">
+                                  Contract: {asset.assetInfo.tokenAddress}
+                                </div>
+                              )}
+                            </div>
+                            <div className="text-right">
+                              <div className="text-green-300 text-sm mb-2">
+                                Status: {asset.isClaimable ? "Claimable 🎉" : "Waiting ⏳"}
+                              </div>
+                              {asset.timeUntilClaimable && (
+                                <div className="text-purple-300 text-xs">
+                                  Time until claimable: {Math.floor(Number(asset.timeUntilClaimable) / 86400)} days
+                                </div>
+                              )}
+                            </div>
+                          </div>
+
+                          <div className="flex gap-3">
+                            {!asset.hasAccepted && (
+                              <>
+                                <button
+                                  onClick={() => handleAcceptBeneficiary(asset.grantor)}
+                                  className="px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg font-semibold transition-all"
+                                >
+                                  Accept Designation ✅
+                                </button>
+                                <button
+                                  onClick={() => handleRejectBeneficiary(asset.grantor)}
+                                  className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg font-semibold transition-all"
+                                >
+                                  Reject ❌
+                                </button>
+                              </>
+                            )}
+                            {asset.hasAccepted && asset.isClaimable && !asset.assetInfo.claimed && (
+                              <button
+                                onClick={() => handleClaimAsset(asset.grantor, asset.assetIndex)}
+                                className="px-6 py-2 bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white rounded-lg font-semibold transition-all"
+                              >
+                                Claim Asset 🎉
+                              </button>
+                            )}
+                            {asset.hasAccepted && !asset.isClaimable && (
+                              <span className="px-4 py-2 bg-gray-600 text-gray-300 rounded-lg font-semibold">
+                                Waiting for claimable status
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Pending Tab */}
+              {beneficiaryTab === "pending" && (
+                <div className="bg-gradient-to-br from-amber-900/30 to-yellow-900/30 backdrop-blur-sm border border-amber-500/20 rounded-3xl p-8">
+                  <h2 className="text-3xl font-bold text-white mb-6">⏳ Pending Actions</h2>
+                  
+                  <div className="space-y-4">
+                    {beneficiaryAssets.filter(asset => !asset.hasAccepted).length === 0 ? (
+                      <div className="text-center py-12">
+                        <div className="text-6xl mb-4">✅</div>
+                        <h3 className="text-xl font-bold text-white mb-2">All caught up!</h3>
+                        <p className="text-amber-200">No pending beneficiary designations.</p>
+                      </div>
+                    ) : (
+                      beneficiaryAssets
+                        .filter(asset => !asset.hasAccepted)
+                        .map((asset, index) => (
+                          <div key={index} className="bg-slate-800/30 border border-amber-500/20 rounded-xl p-6">
+                            <div className="flex justify-between items-center">
+                              <div>
+                                <h4 className="text-white font-bold">
+                                  Beneficiary Designation from {asset.grantor.slice(0, 6)}...{asset.grantor.slice(-4)}
+                                </h4>
+                                <p className="text-amber-200 text-sm mt-1">
+                                  You need to accept or reject this designation to proceed.
+                                </p>
+                              </div>
+                              <div className="flex gap-3">
+                                <button
+                                  onClick={() => handleAcceptBeneficiary(asset.grantor)}
+                                  className="px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg font-semibold transition-all"
+                                >
+                                  Accept ✅
+                                </button>
+                                <button
+                                  onClick={() => handleRejectBeneficiary(asset.grantor)}
+                                  className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg font-semibold transition-all"
+                                >
+                                  Reject ❌
+                                </button>
+                              </div>
+                            </div>
+                          </div>
+                        ))
+                    )}
                   </div>
                 </div>
               )}
