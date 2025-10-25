@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { useWeb3Auth, UserRole } from "@/contexts/Web3AuthContext";
+import { useWeb3Auth} from "@/contexts/Web3AuthContext";
 import { useWillContract, BeneficiaryAsset } from "@/hooks/useWillContract";
 import { useNotification } from "@/contexts/NotificationContext";
 import { useRouter } from "next/navigation";
@@ -34,6 +34,10 @@ export default function DashboardPage() {
   const [loadingBeneficiaryAssets, setLoadingBeneficiaryAssets] = useState(false);
   const [grantorAddress, setGrantorAddress] = useState("");
 
+  // Settings state
+  const [newHeartbeatDays, setNewHeartbeatDays] = useState("");
+  const [showEmergencyConfirm, setShowEmergencyConfirm] = useState(false);
+
   // Only use contract hook if logged in
   const contractHook = useWillContract(loggedIn ? provider : null, loggedIn ? address : "");
   
@@ -53,6 +57,9 @@ export default function DashboardPage() {
     isApprovedBeneficiary,
     approveContractBeneficiary,
     revokeContractBeneficiary,
+    // Grantor management methods
+    emergencyWithdraw,
+    modifyHeartbeat,
   } = contractHook;
 
   // Redirect if not logged in or no role selected
@@ -206,6 +213,31 @@ export default function DashboardPage() {
       notification.info("Contract beneficiary approval revoked.");
     } catch (error) {
       notification.error("Failed to revoke contract beneficiary: " + (error as Error).message);
+    }
+  };
+
+  const handleEmergencyWithdraw = async () => {
+    try {
+      await emergencyWithdraw();
+      notification.success("Emergency withdrawal successful! All assets have been returned to you. 🎉");
+      setShowEmergencyConfirm(false);
+    } catch (error) {
+      notification.error("Failed to perform emergency withdrawal: " + (error as Error).message);
+    }
+  };
+
+  const handleModifyHeartbeat = async () => {
+    try {
+      if (!newHeartbeatDays || Number(newHeartbeatDays) < 1) {
+        notification.warning("Please enter a valid number of days (at least 1)");
+        return;
+      }
+      const intervalSeconds = BigInt(Number.parseInt(newHeartbeatDays) * 24 * 60 * 60);
+      await modifyHeartbeat(intervalSeconds);
+      notification.success("Heartbeat interval updated successfully! ⏰");
+      setNewHeartbeatDays("");
+    } catch (error) {
+      notification.error("Failed to modify heartbeat interval: " + (error as Error).message);
     }
   };
 
@@ -675,31 +707,146 @@ export default function DashboardPage() {
                   <h2 className="text-3xl font-bold text-white mb-6">⚙️ Will Settings</h2>
                   
                   <div className="space-y-6">
+                    {/* Current Settings */}
                     <div className="bg-slate-800/30 border border-purple-500/20 rounded-2xl p-6">
-                      <h3 className="text-white font-bold text-xl mb-4">Current Settings</h3>
+                      <h3 className="text-white font-bold text-xl mb-4">📊 Current Settings</h3>
                       <div className="space-y-3">
-                        <div className="flex justify-between items-center">
+                        <div className="flex justify-between items-center py-2 border-b border-purple-500/10">
                           <span className="text-purple-200">Heartbeat Interval:</span>
-                          <span className="text-white font-semibold">
+                          <span className="text-white font-semibold text-lg">
                             {Number(willInfo.heartbeatInterval / BigInt(86400))} days
                           </span>
                         </div>
-                        <div className="flex justify-between items-center">
+                        <div className="flex justify-between items-center py-2 border-b border-purple-500/10">
                           <span className="text-purple-200">Will Status:</span>
-                          <span className="text-white font-semibold">{willInfo.state}</span>
+                          <span className={`font-semibold text-lg ${
+                            willInfo.state === 'ACTIVE' ? 'text-green-400' : 
+                            willInfo.state === 'CLAIMABLE' ? 'text-orange-400' : 
+                            'text-gray-400'
+                          }`}>
+                            {willInfo.state}
+                          </span>
                         </div>
-                        <div className="flex justify-between items-center">
+                        <div className="flex justify-between items-center py-2">
                           <span className="text-purple-200">Total Assets:</span>
-                          <span className="text-white font-semibold">{willInfo.assetCount.toString()}</span>
+                          <span className="text-white font-semibold text-lg">{willInfo.assetCount.toString()}</span>
                         </div>
                       </div>
                     </div>
 
-                    <div className="bg-yellow-500/10 border border-yellow-500/30 rounded-xl p-6">
-                      <h3 className="text-yellow-200 font-bold mb-2">⚠️ Advanced Features Coming Soon</h3>
-                      <p className="text-yellow-200/80 text-sm">
-                        Features like modifying heartbeat interval, emergency withdrawal, and asset removal will be available in future updates.
-                      </p>
+                    {/* Modify Heartbeat */}
+                    <div className="bg-blue-500/10 border border-blue-500/30 rounded-2xl p-6">
+                      <div className="flex items-center gap-3 mb-4">
+                        <span className="text-3xl">⏰</span>
+                        <div>
+                          <h3 className="text-white font-bold text-xl">Modify Heartbeat Interval</h3>
+                          <p className="text-blue-200 text-sm">Change how often you need to check in</p>
+                        </div>
+                      </div>
+                      
+                      <div className="space-y-4">
+                        <div className="bg-blue-500/10 border border-blue-500/20 rounded-xl p-4">
+                          <p className="text-blue-200 text-sm mb-2">
+                            💡 <strong>Note:</strong> The new interval must be at least 1 day.
+                          </p>
+                          <p className="text-blue-200 text-sm">
+                            If you decrease the interval, your last check-in time will be reset to give you fair time.
+                          </p>
+                        </div>
+
+                        <div>
+                          <label className="block text-blue-200 mb-2 font-medium">
+                            New Interval (days)
+                          </label>
+                          <input
+                            type="number"
+                            value={newHeartbeatDays}
+                            onChange={(e) => setNewHeartbeatDays(e.target.value)}
+                            className="w-full px-4 py-3 bg-slate-800/50 border border-blue-500/30 rounded-xl text-white text-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            placeholder={`Current: ${Number(willInfo.heartbeatInterval / BigInt(86400))} days`}
+                            min="1"
+                          />
+                        </div>
+
+                        <button
+                          onClick={handleModifyHeartbeat}
+                          disabled={!newHeartbeatDays || Number(newHeartbeatDays) < 1}
+                          className="w-full px-6 py-4 bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-700 hover:to-cyan-700 disabled:from-gray-600 disabled:to-gray-700 disabled:cursor-not-allowed text-white rounded-xl font-bold text-lg transition-all transform hover:scale-[1.02] shadow-lg"
+                        >
+                          Update Heartbeat Interval
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* Emergency Withdraw */}
+                    <div className="bg-red-500/10 border border-red-500/30 rounded-2xl p-6">
+                      <div className="flex items-center gap-3 mb-4">
+                        <span className="text-3xl">🚨</span>
+                        <div>
+                          <h3 className="text-white font-bold text-xl">Emergency Withdrawal</h3>
+                          <p className="text-red-200 text-sm">Reclaim all your assets and close your will</p>
+                        </div>
+                      </div>
+
+                      <div className="space-y-4">
+                        <div className="bg-red-500/10 border border-red-500/20 rounded-xl p-4">
+                          <p className="text-red-200 text-sm mb-2">
+                            ⚠️ <strong>Warning:</strong> This action will:
+                          </p>
+                          <ul className="text-red-200 text-sm space-y-1 ml-4">
+                            <li>• Return all unclaimed assets to you</li>
+                            <li>• Mark your will as COMPLETED</li>
+                            <li>• Cannot be undone</li>
+                            <li>• Only available while your will is ACTIVE</li>
+                          </ul>
+                        </div>
+
+                        {!showEmergencyConfirm ? (
+                          <button
+                            onClick={() => setShowEmergencyConfirm(true)}
+                            disabled={willInfo.state !== 'ACTIVE'}
+                            className="w-full px-6 py-4 bg-red-600 hover:bg-red-700 disabled:bg-gray-600 disabled:cursor-not-allowed text-white rounded-xl font-bold text-lg transition-all transform hover:scale-[1.02] shadow-lg"
+                          >
+                            {willInfo.state !== 'ACTIVE' 
+                              ? `Cannot Withdraw (Will is ${willInfo.state})`
+                              : 'Request Emergency Withdrawal'
+                            }
+                          </button>
+                        ) : (
+                          <div className="space-y-3">
+                            <div className="bg-red-500/20 border border-red-500/40 rounded-xl p-4">
+                              <p className="text-red-100 font-semibold text-center">
+                                Are you absolutely sure? This cannot be undone!
+                              </p>
+                            </div>
+                            <div className="grid grid-cols-2 gap-3">
+                              <button
+                                onClick={() => setShowEmergencyConfirm(false)}
+                                className="px-6 py-3 bg-gray-600 hover:bg-gray-700 text-white rounded-xl font-semibold transition-all"
+                              >
+                                Cancel
+                              </button>
+                              <button
+                                onClick={handleEmergencyWithdraw}
+                                className="px-6 py-3 bg-red-600 hover:bg-red-700 text-white rounded-xl font-bold transition-all transform hover:scale-105 shadow-lg"
+                              >
+                                Confirm Withdrawal
+                              </button>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Info Card */}
+                    <div className="bg-purple-500/10 border border-purple-500/30 rounded-xl p-6">
+                      <h4 className="text-purple-200 font-bold mb-2">💡 Settings Tips</h4>
+                      <ul className="text-purple-200 text-sm space-y-2">
+                        <li>• You can modify your heartbeat interval at any time while your will is active</li>
+                        <li>• Emergency withdrawal is a safety feature for urgent situations</li>
+                        <li>• Once withdrawn, you'll need to create a new will to resume protection</li>
+                        <li>• Consider your schedule when setting the heartbeat interval</li>
+                      </ul>
                     </div>
                   </div>
                 </div>

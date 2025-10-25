@@ -338,6 +338,39 @@ export function useWillContract(provider: any, address: string) {
     return hash;
   };
 
+  const emergencyWithdraw = async () => {
+    const walletClient = getWalletClient();
+    const [account] = await walletClient.getAddresses();
+
+    const hash = await walletClient.writeContract({
+      address: WILL_CONTRACT_ADDRESS,
+      abi: WILL_CONTRACT_ABI,
+      functionName: "emergencyWithdraw",
+      account,
+    });
+
+    await publicClient.waitForTransactionReceipt({ hash });
+    await loadWillInfo();
+    return hash;
+  };
+
+  const modifyHeartbeat = async (newIntervalSeconds: bigint) => {
+    const walletClient = getWalletClient();
+    const [account] = await walletClient.getAddresses();
+
+    const hash = await walletClient.writeContract({
+      address: WILL_CONTRACT_ADDRESS,
+      abi: WILL_CONTRACT_ABI,
+      functionName: "modifyHeartbeat",
+      args: [newIntervalSeconds],
+      account,
+    });
+
+    await publicClient.waitForTransactionReceipt({ hash });
+    await loadWillInfo();
+    return hash;
+  };
+
   return {
     willInfo,
     loading,
@@ -355,5 +388,8 @@ export function useWillContract(provider: any, address: string) {
     isApprovedBeneficiary,
     approveContractBeneficiary,
     revokeContractBeneficiary,
+    // Grantor management methods
+    emergencyWithdraw,
+    modifyHeartbeat,
   };
 }

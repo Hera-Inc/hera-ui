@@ -62,7 +62,25 @@ export function Web3AuthProvider({ children }: { children: ReactNode }) {
   const [userInfo, setUserInfo] = useState<any>(null);
   const [address, setAddress] = useState<string>("");
   const [currentChainId, setCurrentChainId] = useState<string | null>(null);
-  const [userRole, setUserRole] = useState<UserRole>(null);
+  const [userRole, setUserRoleState] = useState<UserRole>(null);
+
+  // Load userRole from localStorage on mount
+  useEffect(() => {
+    const storedRole = localStorage.getItem("hera_user_role");
+    if (storedRole === "grantor" || storedRole === "beneficiary") {
+      setUserRoleState(storedRole as UserRole);
+    }
+  }, []);
+
+  // Wrapper to persist userRole to localStorage
+  const setUserRole = (role: UserRole) => {
+    setUserRoleState(role);
+    if (role) {
+      localStorage.setItem("hera_user_role", role);
+    } else {
+      localStorage.removeItem("hera_user_role");
+    }
+  };
 
   useEffect(() => {
     const init = async () => {
