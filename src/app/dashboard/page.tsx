@@ -993,9 +993,9 @@ export default function DashboardPage() {
                             </div>
                             <div className="text-right">
                               <div className="text-green-300 text-sm mb-2">
-                                Status: {asset.isClaimable ? "Claimable 🎉" : "Waiting ⏳"}
+                                Status: {asset.assetInfo.claimed ? "Claimed ✅" : asset.isClaimable ? "Claimable 🎉" : "Waiting ⏳"}
                               </div>
-                              {asset.timeUntilClaimable && (
+                              {asset.timeUntilClaimable && !asset.assetInfo.claimed && (
                                 <div className="text-purple-300 text-xs">
                                   Time until claimable: {Math.floor(Number(asset.timeUntilClaimable) / 86400)} days
                                 </div>
@@ -1028,9 +1028,14 @@ export default function DashboardPage() {
                                 Claim Asset 🎉
                               </button>
                             )}
-                            {asset.hasAccepted && !asset.isClaimable && (
+                            {asset.hasAccepted && !asset.isClaimable && !asset.assetInfo.claimed && (
                               <span className="px-4 py-2 bg-gray-600 text-gray-300 rounded-lg font-semibold">
                                 Waiting for claimable status
+                              </span>
+                            )}
+                            {asset.assetInfo.claimed && (
+                              <span className="px-4 py-2 bg-green-600/50 text-green-200 rounded-lg font-semibold">
+                                Successfully Claimed ✅
                               </span>
                             )}
                           </div>
